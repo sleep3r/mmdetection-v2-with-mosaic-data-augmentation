@@ -1,6 +1,5 @@
 _base_ = [
     '../_base_/models/cascade_rcnn_r50_fpn_detector.py',
-    # '../_base_/datasets/coco_detection.py',
     '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
 ]
 
@@ -29,7 +28,6 @@ model = dict(
             sac=dict(type='SAC', use_deform=True),
             stage_with_sac=(False, True, True, True),
             pretrained='torchvision://resnet50',
-            #pretrained=None,
             style='pytorch')))
 
 
@@ -47,23 +45,54 @@ test_cfg = dict(
 # use MosaicCocoDataset for training on coco dataset
 dataset_type = 'MyMosaicDataset'
 # this is my colab data root, set your own data root
-data_root = '/content/mmdetection/data/coco/'
+data_root = '/data/coco/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
 albu_train_transforms = [
+    # dict(
+    #     type='RandomSizedBBoxSafeCrop',
+    #     height=512,
+    #     width=512,
+    #     erosion_rate=0.0,
+    #     interpolation=1,
+    #     p=1.0
+    # ),
     dict(
-        type='RandomBrightnessContrast',
-        brightness_limit=[0.1, 0.3],
-        contrast_limit=[0.1, 0.3],
-        p=0.5),
+        type='HorizontalFlip',
+        p=0.5
+    ),
+    dict(
+        type='VerticalFlip',
+        p=0.5
+    ),
+    dict(
+        type='ToGray',
+        p=0.02
+    ),
     dict(
         type='OneOf',
         transforms=[
-            dict(type='Blur', blur_limit=3, p=1.0),
-            dict(type='MedianBlur', blur_limit=3, p=1.0)
+            dict(
+                type='RandomContrast',
+            ),
+            dict(
+                type='RandomGamma',
+            ),
+            dict(
+                type='RandomBrightness',
+            ),
         ],
-        p=0.1),
+        p=1.0
+    ),
+    # dict(
+    #     type="Cutout",
+    #     num_holes=8,
+    #     max_h_size=128,
+    #     max_w_size=64,
+    #     fill_value=0,
+    #     p=0.3
+    # ),
 ]
 
 # image_shape:input image shape;
@@ -73,7 +102,6 @@ train_pipeline = [
     dict(type='LoadMosaicImageAndAnnotations', with_bbox=True, with_mask=False, image_shape=[1024, 1024],
          hsv_aug=True, h_gain=0.014, s_gain=0.68, v_gain=0.36, skip_box_w=5, skip_box_h=5),
     dict(type='Resize', img_scale=(1024, 1024), keep_ratio=True),
-    dict(type='RandomFlip', flip_ratio=0.5),
     dict(
         type='Albu',
         transforms=albu_train_transforms,
@@ -135,3 +163,17 @@ data = dict(
 evaluation = dict(interval=1, metric='bbox')
 
 checkpoint_config = dict(interval=2, create_symlink=False)
+
+# optimizer
+optimizer = dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.0001)
+optimizer_config = dict(grad_clip=None)
+# learning policy
+lr_config = dict(
+    policy='step',
+    warmup='linear',
+    warmup_iters=500,
+    warmup_ratio=0.001,
+    step=[8, 11])
+total_epochs = 12
+
+load_from = "https://open-mmlab.s3.ap-northeast-2.amazonaws.com/mmdetection/v2.0/detectors/detectors_cascade_rcnn_r50_1x_coco/detectors_cascade_rcnn_r50_1x_coco-32a10ba0.pth"
